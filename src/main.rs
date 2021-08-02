@@ -25,10 +25,10 @@ const EVAL_NORMAL: i8 = 0;
 const EVAL_PERFECT: i8 = 1; // 完全読み切り（個数も読む）
 const EVAL_WIN: i8 = 2; // 勝つかどうかだけ読む（個数は読まない）
 
-const EVAL_BY_POINTTABLE_DEPTH: i8 = 10;
-const EVAL_NORMAL_DEPTH: i8 = 10;
+const EVAL_BY_POINTTABLE_DEPTH: i8 = 9;
+const EVAL_NORMAL_DEPTH: i8 = 9;
 const EVAL_PERFECT_DEPTH: i8 = 16;
-const EVAL_WIN_DEPTH: i8 = 20;
+const EVAL_WIN_DEPTH: i8 = 18;
 
 // eval_normalにおける重み
 const WEIGHT_STABLE:   i32 = 101;
@@ -881,8 +881,11 @@ fn decide(board_info: &mut BoardInfo, left_time: i32, way_of_eval: i8, limit: i8
                 let (c1, c2) = bit_to_point(mask);
                 let mov = vec![c1, c2];
                 let mov_string: String = mov.iter().collect();
-                println!("debug: score={}, place={}", tmp, mov_string);
-                s2.send((mask, tmp)).unwrap();
+                match s2.send((mask, tmp)) {
+                    Ok(_) => println!("debug: score={}, place={}", tmp, mov_string),
+                    Err(mpsc::SendError(_)) => println!("debug: this thread is not useless; ignore it."), // すでに計算が不要でいらないthread
+                    _ => panic!("Non-expected error"),
+                };
             }));
             s1.send((mask, limit, board_info.clone(), way_of_eval)).unwrap();
             receiver.push(r2);
@@ -892,8 +895,9 @@ fn decide(board_info: &mut BoardInfo, left_time: i32, way_of_eval: i8, limit: i8
 
     // 集計
     let mut finished_thread_count = 0;
+    let mut i = 0;
     while finished_thread_count != thread_count {
-        match receiver[finished_thread_count].try_recv() {
+        match receiver[i].try_recv() { // busy loopでスレッドを順にみていく
             Ok((bit_ok, tmp_ok)) => {
                 finished_thread_count += 1;
                 let (bit, tmp) = (bit_ok, tmp_ok);
@@ -902,6 +906,7 @@ fn decide(board_info: &mut BoardInfo, left_time: i32, way_of_eval: i8, limit: i8
                     if tmp == 1 { // 必勝できる手が見つかった
                         println!("Win-Road found: stop searching");
                         return bit;
+                        // 注意：このときまだ動き続けているスレッドがあるので，Err(mpsc::SendError(_))として別処理が必要
                     }
                 }
 
@@ -915,13 +920,18 @@ fn decide(board_info: &mut BoardInfo, left_time: i32, way_of_eval: i8, limit: i8
                 let elapse = start.elapsed();
                 let sec = elapse.as_secs();
                 // 必勝読みや完全読みの境目にいるとき，残り10秒以下ならやばくなってくるので，EVAL_NORMALで計算し直す
-                if left_time - sec as i32 * 1000 <= 10000 && EVAL_PERFECT_DEPTH <= (60 - board_info.now_index) && (60 - board_info.now_index) <= EVAL_WIN_DEPTH { 
+                if (way_of_eval == EVAL_WIN || way_of_eval == EVAL_PERFECT) && left_time - sec as i32 * 1000 <= 10000 && EVAL_PERFECT_DEPTH <= (60 - board_info.now_index) && (60 - board_info.now_index) <= EVAL_WIN_DEPTH { 
                     return decide(board_info, left_time, EVAL_NORMAL, 10);
+                    // 注意：このときまだ動き続けているスレッドがあるので，Err(mpsc::SendError(_))として別処理が必要
                 }
                 continue;
             },
             _ => panic!("Non-expected error occured"),
         };  
+        i += 1;
+        if i == thread_count {
+            i = 0;
+        }
     }
     for thread in threads {
         thread.join().unwrap();
@@ -1062,7 +1072,7 @@ fn main() {
 
                 // メインループ
                 let mut bit: u64; // 打つ手（0ならpassを表す）
-                let mut way_of_eval: i8 = EVAL_NORMAL; // 評価関数をどれにするかを定める
+                let mut way_of_eval: i8; // 評価関数をどれにするかを定める
                 let mut limit: i8;
 
                 let mut is_waiting: bool = true; // 対戦待ち状態ならtrue
