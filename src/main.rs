@@ -1,5 +1,5 @@
 use std::str;
-use std::time::{Instant, Duration};
+use std::time::{Instant};
 use std::io::{BufRead, BufReader, Write, BufWriter};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::env;
@@ -27,8 +27,8 @@ const EVAL_WIN: i8 = 2; // 勝つかどうかだけ読む（個数は読まな�
 
 const EVAL_BY_POINTTABLE_DEPTH: i8 = 10;
 const EVAL_NORMAL_DEPTH: i8 = 10;
-const EVAL_PERFECT_DEPTH: i8 = 17;
-const EVAL_WIN_DEPTH: i8 = 19;
+const EVAL_PERFECT_DEPTH: i8 = 16;
+const EVAL_WIN_DEPTH: i8 = 20;
 
 // eval_normalにおける重み
 const WEIGHT_STABLE:   i32 = 101;
@@ -36,9 +36,6 @@ const WEIGHT_WING:     i32 = -308;
 const WEIGHT_XMOVE:    i32 = -449;
 const WEIGHT_CMOVE:    i32 = -552;
 const WEIGHT_MOBILITY: i32 = 134;
-
-// // 経過時間を格納する（unsafe）
-// static mut TIME: f64 = 0.0;
 
 struct BoardInfo {
     now_turn: i8,
@@ -58,18 +55,26 @@ impl Clone for BoardInfo {
     }
 }
 
-fn type_of<T>(_: T) -> String {
-    let a = std::any::type_name::<T>();
-    return a.to_string();
-}
 fn max(a: i32, b: i32) -> i32 {
     return if a < b {b} else {a};
 }
-fn min(a: i32, b: i32) -> i32 {
-    return if a < b {a} else {b};
+
+// 盤面の情報を簡易的に出力する
+fn print_board_info_simply(board_info: &BoardInfo) -> () {
+    let (black_count, white_count, _superior) = get_result(&board_info);
+    println!("{}'s TURN, BLACK:{}, WHITE:{}, INDEX:{}", 
+        match board_info.now_turn {
+            BLACK => "BLACK",
+            WHITE => "WHITE",
+            _     => panic!("there is not sych color"),
+        },
+        black_count,
+        white_count,
+        board_info.now_index,
+    );
 }
 
-// 盤面を簡易的に出力する
+// 盤面を出力する
 fn print_board_info(board_info: &BoardInfo, eval: i32) -> () {
     println!("");
     println!("********************");
@@ -391,6 +396,13 @@ fn eval_by_pointtable(board_info: &BoardInfo) -> i32 {
 
 // 中盤に用いる評価関数
 fn eval_normal(board_info: &BoardInfo) -> i32 {
+    if board_info.player_board.count_ones() == 0 as u32 {
+        return std::i32::MIN;
+    }
+    if board_info.opponent_board.count_ones() == 0 as u32 {
+        return std::i32::MAX;
+    }
+
     let empty_board = !(board_info.player_board | board_info.opponent_board);
     
     // ウイング，危険なC打ちをカウント
@@ -783,7 +795,7 @@ fn eval_win(board_info: &BoardInfo) -> i32 {
 // 探索（alpha-beta法による）
 fn negamax(alpha_: i32, beta_: i32, limit: i8, board_info: &mut BoardInfo, way_of_eval: i8) -> i32 {
     let mut alpha: i32 = alpha_;
-    let mut beta: i32 = beta_;
+    let beta: i32 = beta_;
 
     if limit == 0 || is_game_over(board_info) { // 深さ制限 or 終局
         return evaluate(way_of_eval, &board_info);
@@ -825,60 +837,8 @@ fn negamax(alpha_: i32, beta_: i32, limit: i8, board_info: &mut BoardInfo, way_o
     return score_max;
 }
 
-// // 着手する手をランダムで思考する（デバッグ用）
-// fn decide_by_rnd(board_info: &mut BoardInfo) -> u64 {
-//     let legal_board: u64 = make_legal_board(&board_info);
-//     if legal_board == 0 as u64 { // おける手がなければパスを選択
-//         return 0 as u64;
-//     }
-//     if legal_board.count_ones() == 1 as u32 { // おける手が一つしかなければそのままそれを返す
-//         return legal_board;
-//     }
-//     // 作戦: ランダムに手を選ぶ
-//     let mut rand_num = rand::thread_rng().gen_range(1, legal_board.count_ones() as i32 + 1); // 1からlegal_boardまでの数をランダムに選ぶ
-//     let mut shift = 0;
-//     while rand_num > 0 {
-//         while (legal_board >> shift) & 1 == 0 {
-//             shift += 1;
-//         }
-//         rand_num -= 1;
-//     }
-//     let ret = 0x0000000000000001 << shift;
-//     return ret;
-// }
-
-// // 着手する手を得点テーブルを使って得点が直後の得点が高くなるように選ぶ（デバッグ用）
-// fn decide_greedy(board_info: &mut BoardInfo) -> u64 {
-//     let legal_board: u64 = make_legal_board(&board_info);
-//     if legal_board == 0 as u64 { // おける手がなければパスを選択
-//         return 0 as u64;
-//     }
-//     if legal_board.count_ones() == 1 as u32 { // おける手が一つしかなければそのままそれを返す
-//         return legal_board;
-//     }
-//     let mut ret: u64 = 0;
-//     // 作戦: 得点テーブルを使って得点が直後の得点が高くなるように手を選ぶ
-//     let mut mask: u64 = 0x0000000000000001;
-//     let mut max_eval: i32 = std::i32::MIN;
-//     let mut tmp: i32;
-//     for _ in 0..BOARDSIZE {
-//         if mask & legal_board != 0 { // maskが実際における場所であるとき
-//             let tmp_board_info: BoardInfo = board_info.clone();
-//             place(mask, board_info); // 実際においてみる
-//             tmp = evaluate(EVAL_BY_POINTTABLE, &board_info); 
-//             *board_info = tmp_board_info; // 盤面を元に戻す
-//             if tmp > max_eval { // 得点が高くなるように更新
-//                 max_eval = tmp;
-//                 ret = mask;
-//             }
-//         }
-//         mask = mask << 1;
-//     }
-//     return ret;
-// }
-
 // 着手する手を思考する
-fn decide(board_info: &mut BoardInfo) -> u64 {
+fn decide(board_info: &mut BoardInfo, left_time: i32, way_of_eval: i8, limit: i8) -> u64 {
     let legal_board: u64 = make_legal_board(&board_info);
 
     if legal_board == 0 as u64 { // おける手がなければパスを選択
@@ -891,42 +851,14 @@ fn decide(board_info: &mut BoardInfo) -> u64 {
 
     let mut ret: u64 = 0;
 
-    // // 実行速度計測開始
-    // let start = Instant::now();
+    // 実行速度計測開始
+    let start = Instant::now();
+
+    println!("debug: left_time={}, way_of_eval={}, limit={}", left_time, way_of_eval, limit);
 
     // 作戦: alpha-beta法を用いた探索
     let mut mask: u64 = 0x0000000000000001;
     let mut max_eval: i32 = std::i32::MIN;
-    let mut tmp: i32;
-    let way_of_eval: i8 = choose_evaluator(&board_info);
-
-    let limit: i8 = match way_of_eval {
-        EVAL_BY_POINTTABLE => EVAL_BY_POINTTABLE_DEPTH,
-        EVAL_NORMAL        => EVAL_NORMAL_DEPTH,
-        EVAL_WIN           => EVAL_WIN_DEPTH,
-        EVAL_PERFECT       => EVAL_PERFECT_DEPTH,
-        _                  => panic!("there is not such way of evaluation"),
-    };
-
-    // // シングルスレッドによる実装
-    // for _ in 0..BOARDSIZE {
-    //     if mask & legal_board != 0 { // maskが実際における場所であるとき
-    //         let tmp_board_info: BoardInfo = board_info.clone();
-    //         place(mask, board_info); // 実際においてみる
-    //         swap(board_info);
-    //         tmp = -negamax(std::i32::MIN+1, std::i32::MAX-1, limit-1, board_info, way_of_eval); // int_maxやint_minをnegateするとoverflowが発生するため，値を調節している
-    //         let (c1, c2) = bit_to_point(mask);
-    //         let mov = vec![c1, c2];
-    //         let mov_string: String = mov.iter().collect();
-    //         println!("debug: score={}, place={}, place_bit={:x}", tmp, mov_string, mask);
-    //         *board_info = tmp_board_info; // 盤面を元に戻す
-    //         if tmp > max_eval { // 得点が高くなるように更新
-    //             max_eval = tmp;
-    //             ret = mask;
-    //         }
-    //     }
-    //     mask = mask << 1;
-    // }
 
     // マルチスレッドによる実装
     let mut thread_count = 0;
@@ -957,32 +889,43 @@ fn decide(board_info: &mut BoardInfo) -> u64 {
         }
         mask = mask << 1;
     }
+
+    // 集計
+    let mut finished_thread_count = 0;
+    while finished_thread_count != thread_count {
+        match receiver[finished_thread_count].try_recv() {
+            Ok((bit_ok, tmp_ok)) => {
+                finished_thread_count += 1;
+                let (bit, tmp) = (bit_ok, tmp_ok);
+
+                if way_of_eval == EVAL_WIN { // 必勝読みでは，必勝できる手が見つかったら探索を打ち切ってその手を打つ
+                    if tmp == 1 { // 必勝できる手が見つかった
+                        println!("Win-Road found: stop searching");
+                        return bit;
+                    }
+                }
+
+                // 得点が高くなるように更新
+                if tmp > max_eval { 
+                    max_eval = tmp;
+                    ret = bit;
+                }
+            },
+            Err(mpsc::TryRecvError::Empty) => {
+                let elapse = start.elapsed();
+                let sec = elapse.as_secs();
+                // 必勝読みや完全読みの境目にいるとき，残り10秒以下ならやばくなってくるので，EVAL_NORMALで計算し直す
+                if left_time - sec as i32 * 1000 <= 10000 && EVAL_PERFECT_DEPTH <= (60 - board_info.now_index) && (60 - board_info.now_index) <= EVAL_WIN_DEPTH { 
+                    return decide(board_info, left_time, EVAL_NORMAL, 10);
+                }
+                continue;
+            },
+            _ => panic!("Non-expected error occured"),
+        };  
+    }
     for thread in threads {
         thread.join().unwrap();
     }
-    for i in 0..thread_count {
-        let (bit, tmp) = receiver[i].recv().unwrap();
-        if tmp > max_eval { // 得点が高くなるように更新
-            max_eval = tmp;
-            ret = bit;
-        }
-    }
-
-
-
-    // todo: 30s超えたら完全読みを諦める
-
-    // todo: negamax計算の際，sortしてから計算するほうがカットしやすい
-
-    // todo: 定石の設定
-    
-
-    // // 実行速度計測終了
-    // let elapse = start.elapsed();
-    // unsafe{
-    //     TIME += (elapse.as_secs() as f64) + (elapse.subsec_nanos() as f64)/(1000000000 as f64);
-    //     println!("debug: total TIME: {}s", TIME);
-    // }
 
     // 勝敗予想
     if way_of_eval == EVAL_WIN {
@@ -1013,7 +956,6 @@ fn choose_evaluator(board_info: &BoardInfo) -> i8 {
         }
         return EVAL_WIN;
     }
-    // return EVAL_BY_POINTTABLE; // debug
     return EVAL_NORMAL;
 }
 
@@ -1041,7 +983,8 @@ fn concat(vec: &Vec<u8>) -> i32 {
     return acc;
 }
 
-fn read_start(buffer: &Vec<u8>) -> (i8, Vec<char>, i32) { // STARTを受信した際，自分の色，相手の名前，残りの時間をタプルで返す
+// STARTを受信した際，自分の色，相手の名前，残りの時間をタプルで返す
+fn read_start(buffer: &Vec<u8>) -> (i8, Vec<char>, i32) { 
     if buffer[0] == 'S' as u8 {  // STARTがきた 
         let mut i = 1;
         while buffer[i] != 'B' as u8 && buffer[i] != 'W' as u8 {
@@ -1078,6 +1021,8 @@ fn main() {
     let mut host = "localhost";
     let mut port = "3000";
     let mut name = "Player";
+
+
     if args.len() > 3 {
         host = &args[1];
         port = &args[2];
@@ -1102,7 +1047,7 @@ fn main() {
                 // 自分の色の情報を格納
                 let mut my_color: i8 = BLACK;
                 // 相手の名前の情報を格納
-                let mut opponent_name = Vec::<char>::new();
+                let mut _opponent_name = Vec::<char>::new();
                 // 残り時間の情報を格納
                 let mut left_time = 0;
                 // 盤面の履歴の情報を格納
@@ -1117,7 +1062,9 @@ fn main() {
 
                 // メインループ
                 let mut bit: u64; // 打つ手（0ならpassを表す）
-                let mut way_of_eval: i8 = choose_evaluator(&board_info); // 評価関数をどれにするかを定める
+                let mut way_of_eval: i8 = EVAL_NORMAL; // 評価関数をどれにするかを定める
+                let mut limit: i8;
+
                 let mut is_waiting: bool = true; // 対戦待ち状態ならtrue
                 let mut buffer = Vec::<u8>::new();
                 loop{
@@ -1132,7 +1079,7 @@ fn main() {
                             // 初期化処理
                             let tmp = read_start(&buffer);
                             my_color = tmp.0;
-                            opponent_name = tmp.1;
+                            _opponent_name = tmp.1;
                             left_time = tmp.2;
                             board_info_history = Vec::<BoardInfo>::new();
                             board_info = BoardInfo{
@@ -1153,7 +1100,14 @@ fn main() {
 
                         // 自分の手を思考
                         way_of_eval = choose_evaluator(&board_info);
-                        bit = decide(&mut board_info);
+                        limit = match way_of_eval {
+                            EVAL_BY_POINTTABLE => EVAL_BY_POINTTABLE_DEPTH,
+                            EVAL_NORMAL        => EVAL_NORMAL_DEPTH,
+                            EVAL_WIN           => EVAL_WIN_DEPTH,
+                            EVAL_PERFECT       => EVAL_PERFECT_DEPTH,
+                            _                  => panic!("there is not such way of evaluation"),
+                        };
+                        bit = decide(&mut board_info, left_time, way_of_eval, limit);
 
                         // 自分の手を送信
                         if bit == 0 as u64 {
@@ -1179,15 +1133,13 @@ fn main() {
                                 i += 1;
                             }
                             left_time = concat(&left_time_vec);
-                            println!("debug: left_time = {}ms", left_time);
 
                             board_info_history.push(board_info.clone());
 
                             match place(bit, &mut board_info) {
                                 CONTINUE | PLACE_ERR | GAME_SET => {swap(&mut board_info);
-                                    println!("debug: hi");
-                                    print_board_info(&board_info, evaluate(way_of_eval, &board_info));
-                                    println!("debug: hoge");
+                                    println!("");
+                                    print_board_info_simply(&board_info);
                                     continue
                                 }, // ゲーム終了，中断の判定はサーバーがやってくれるのでとりあえず中断，終了の場合もとりあえず次に回す
                                 _ => panic!("undefined return value of place"),
@@ -1197,10 +1149,7 @@ fn main() {
                         }
 
                     }else{ // 相手のターン
-
-                        println!("debug: fuge");
                         buffer = read_tcp(&mut reader);
-                        println!("debug: hihihi");
 
                         if buffer[0] == 'M' as u8 {  // MOVEがきた（moveがきたので相手は合法手をうっていると確定）
                             let mut i = 1;
@@ -1218,7 +1167,7 @@ fn main() {
 
                             match place(bit, &mut board_info) {
                                 CONTINUE | PLACE_ERR | GAME_SET => {swap(&mut board_info);
-                                    print_board_info(&board_info, evaluate(way_of_eval, &board_info));
+                                    print_board_info_simply(&board_info);
                                     continue
                                 }, // ゲーム終了，中断の判定はサーバーがやってくれるのでとりあえず中断，終了の場合もとりあえず次に回す
                                 _ => panic!("undefined return value of place"),
@@ -1239,7 +1188,4 @@ fn main() {
     }else{
         panic!("invalid host:port");
     }
-
-    
-
 }
