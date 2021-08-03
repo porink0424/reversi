@@ -1136,7 +1136,7 @@ fn main() {
                 };
 
                 // メインループ
-                let mut bit: u64; // 打つ手（0ならpassを表す）
+                let mut bit: u64 = 0; // 打つ手（0ならpassを表す）
                 let mut way_of_eval: i8; // 評価関数をどれにするかを定める
                 let mut limit: i8;
 
