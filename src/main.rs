@@ -921,7 +921,6 @@ fn decide(board_info: &mut BoardInfo, left_time: i32, way_of_eval: i8, limit: i8
     let mut thread_count = 0;
     let mut threads = Vec::new();
     let mut receiver = Vec::new();
-
     for _ in 0..BOARDSIZE {
         if mask & legal_board != 0 { // maskが実際における場所であるとき
             thread_count += 1;
