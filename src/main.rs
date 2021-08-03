@@ -25,8 +25,8 @@ const EVAL_NORMAL: i8 = 0;
 const EVAL_PERFECT: i8 = 1; // 完全読み切り（個数も読む）
 const EVAL_WIN: i8 = 2; // 勝つかどうかだけ読む（個数は読まない）
 
-const EVAL_BY_POINTTABLE_DEPTH: i8 = 9;
-const EVAL_NORMAL_DEPTH: i8 = 9;
+const EVAL_BY_POINTTABLE_DEPTH: i8 = 8;
+const EVAL_NORMAL_DEPTH: i8 = 8;
 const EVAL_PERFECT_DEPTH: i8 = 16;
 const EVAL_WIN_DEPTH: i8 = 18;
 
@@ -36,6 +36,7 @@ const WEIGHT_WING:     i32 = -308;
 const WEIGHT_XMOVE:    i32 = -449;
 const WEIGHT_CMOVE:    i32 = -552;
 const WEIGHT_MOBILITY: i32 = 134;
+const WEIGHT_OPENNESS: i32 = -13;
 
 struct BoardInfo {
     now_turn: i8,
@@ -392,6 +393,52 @@ fn eval_by_pointtable(board_info: &BoardInfo) -> i32 {
     point -= (board_info.opponent_board & 0x0000182424180000).count_ones() as i32 * (-5);  // D3
 
     return point;
+}
+
+// 指定したますの開放度を計算する
+fn count_openness(empty_board: u64, bit: u64) -> i32 {
+    let mut count = 0;
+    if bit & 0x00000000000000ff == 0 { // 下にますがある
+        if (bit >> 8) & empty_board != 0 { // 下が空いている
+            count += 1;
+        }
+    }
+    if bit & 0x80808080808080ff == 0 { // 左下
+        if (bit >> 7) & empty_board != 0 { // 左下
+            count += 1;
+        }
+    }
+    if bit & 0x8080808080808080 == 0 { // 左
+        if (bit << 1) & empty_board != 0 { // 左
+            count += 1;
+        }
+    }
+    if bit & 0xff80808080808080 == 0 { // 左上
+        if (bit << 9) & empty_board != 0 { // 左上
+            count += 1;
+        }
+    }
+    if bit & 0xff00000000000000 == 0 { // 上
+        if (bit << 8) & empty_board != 0 { // 上
+            count += 1;
+        }
+    }
+    if bit & 0xff01010101010101 == 0 { // 右上
+        if (bit << 7) & empty_board != 0 { // 右上
+            count += 1;
+        }
+    }
+    if bit & 0x0101010101010101 == 0 { // 右
+        if (bit >> 1) & empty_board != 0 { // 右
+            count += 1;
+        }
+    }
+    if bit & 0x01010101010101ff == 0 { // 右下
+        if (bit >> 9) & empty_board != 0 { // 右下
+            count += 1;
+        }
+    }
+    return count;
 }
 
 // 中盤に用いる評価関数
@@ -769,16 +816,26 @@ fn eval_normal(board_info: &BoardInfo) -> i32 {
     let mut tmp_board_info = board_info.clone();
     swap(&mut tmp_board_info);
     let opponent_legal_board_count = make_legal_board(&tmp_board_info).count_ones() as i32;
-    
-    // debug 
-    // println!("player: wing={}, c={}, stable={}, x={}, mobi={}", player_wing_count, player_c_place_count, player_stable_count, player_x_place_count, player_legal_board_count);
-    // println!("oppone: wing={}, c={}, stable={}, x={}, mobi={}", opponent_wing_count, opponent_c_place_count, opponent_stable_count, opponent_x_place_count, opponent_legal_board_count);
-    
+
+    // 開放度計算
+    let mut player_openness = 0;
+    let mut opponent_openness = 0;
+    let mut mask: u64 = 0x8000000000000000;
+    for _ in 0..BOARDSIZE {
+        if board_info.player_board & mask != 0 {
+            player_openness += count_openness(empty_board, mask);
+        }else if board_info.opponent_board & mask != 0 {
+            opponent_openness += count_openness(empty_board, mask);
+        }
+        mask = mask >> 1;
+    }
+
     return (player_stable_count - opponent_stable_count) * WEIGHT_STABLE
         + (player_wing_count - opponent_wing_count) * WEIGHT_WING
         + (player_x_place_count - opponent_x_place_count) * WEIGHT_XMOVE
         + (player_c_place_count - opponent_c_place_count) * WEIGHT_CMOVE
-        + (player_legal_board_count - opponent_legal_board_count) * WEIGHT_MOBILITY;
+        + (player_legal_board_count - opponent_legal_board_count) * WEIGHT_MOBILITY
+        + (player_openness - opponent_openness) * WEIGHT_OPENNESS;
 }
 
 // 完全読み切り（個数も読む）
@@ -884,7 +941,6 @@ fn decide(board_info: &mut BoardInfo, left_time: i32, way_of_eval: i8, limit: i8
                 match s2.send((mask, tmp)) {
                     Ok(_) => println!("debug: score={}, place={}", tmp, mov_string),
                     Err(mpsc::SendError(_)) => println!("debug: this thread is not useless; ignore it."), // すでに計算が不要でいらないthread
-                    _ => panic!("Non-expected error"),
                 };
             }));
             s1.send((mask, limit, board_info.clone(), way_of_eval)).unwrap();
@@ -1032,11 +1088,20 @@ fn main() {
     let mut port = "3000";
     let mut name = "Player";
 
-
-    if args.len() > 3 {
-        host = &args[1];
-        port = &args[2];
-        name = &args[3];
+    let mut i = 1;
+    while i < args.len() {
+        if args[i] == "-H" { // host
+            host = &args[i+1];
+            i += 2;
+        }else if args[i] == "-p" { // port
+            port = &args[i+1];
+            i += 2;
+        }else if args[i] == "-n" { // name
+            name = &args[i+1];
+            i += 2;
+        }else {
+            panic!("INVALID args");
+        }
     }
 
     let host_and_port = format!("{}:{}", host, port);
@@ -1148,7 +1213,6 @@ fn main() {
 
                             match place(bit, &mut board_info) {
                                 CONTINUE | PLACE_ERR | GAME_SET => {swap(&mut board_info);
-                                    println!("");
                                     print_board_info_simply(&board_info);
                                     continue
                                 }, // ゲーム終了，中断の判定はサーバーがやってくれるのでとりあえず中断，終了の場合もとりあえず次に回す
