@@ -31,12 +31,12 @@ const EVAL_PERFECT_DEPTH: i8 = 16;
 const EVAL_WIN_DEPTH: i8 = 18;
 
 // eval_normalにおける重み
-const WEIGHT_STABLE:   i32 = 101;
-const WEIGHT_WING:     i32 = -308;
-const WEIGHT_XMOVE:    i32 = -449;
-const WEIGHT_CMOVE:    i32 = -552;
-const WEIGHT_MOBILITY: i32 = 134;
-const WEIGHT_OPENNESS: i32 = -13;
+const WEIGHT_STABLE:   i32 = 100;
+const WEIGHT_WING:     i32 = -310;
+const WEIGHT_XMOVE:    i32 = -450;
+const WEIGHT_CMOVE:    i32 = -550;
+const WEIGHT_MOBILITY: i32 = 135;
+const WEIGHT_OPENNESS: i32 = -10;
 
 struct BoardInfo {
     now_turn: i8,
@@ -921,7 +921,7 @@ fn decide(board_info: &mut BoardInfo, left_time: i32, way_of_eval: i8, limit: i8
     let mut thread_count = 0;
     let mut threads = Vec::new();
     let mut receiver = Vec::new();
-    
+
     for _ in 0..BOARDSIZE {
         if mask & legal_board != 0 { // maskが実際における場所であるとき
             thread_count += 1;
