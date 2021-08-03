@@ -977,7 +977,7 @@ fn decide(board_info: &mut BoardInfo, left_time: i32, way_of_eval: i8, limit: i8
                 let sec = elapse.as_secs();
                 // 必勝読みや完全読みの境目にいるとき，残り10秒以下ならやばくなってくるので，EVAL_NORMALで計算し直す
                 if (way_of_eval == EVAL_WIN || way_of_eval == EVAL_PERFECT) && left_time - sec as i32 * 1000 <= 10000 && EVAL_PERFECT_DEPTH <= (60 - board_info.now_index) && (60 - board_info.now_index) <= EVAL_WIN_DEPTH { 
-                    return decide(board_info, left_time, EVAL_NORMAL, 10);
+                    return decide(board_info, left_time, EVAL_NORMAL, EVAL_NORMAL_DEPTH);
                     // 注意：このときまだ動き続けているスレッドがあるので，Err(mpsc::SendError(_))として別処理が必要
                 }
                 continue;
@@ -1182,8 +1182,25 @@ fn main() {
                             EVAL_PERFECT       => EVAL_PERFECT_DEPTH,
                             _                  => panic!("there is not such way of evaluation"),
                         };
-                        bit = decide(&mut board_info, left_time, way_of_eval, limit);
 
+                        if left_time < 1000 { // 残り時間が1s以下になったら適当に選ぶ
+                            let legal_board: u64 = make_legal_board(&board_info);
+                            if legal_board == 0 as u64 { // おける手がなければパスを選択
+                                bit = 0;
+                            }else{
+                                let mut mask = 0x800000000000000;
+                                for _ in 0..BOARDSIZE {
+                                    if mask & legal_board != 0 {
+                                        bit = mask;
+                                        break;
+                                    }
+                                    mask = mask >> 1;
+                                }
+                            }
+                        }else{
+                            bit = decide(&mut board_info, left_time, way_of_eval, limit);
+                        }
+                    
                         // 自分の手を送信
                         if bit == 0 as u64 {
                             write_tcp(&mut writer, "MOVE PASS");
