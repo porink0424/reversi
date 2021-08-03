@@ -444,10 +444,10 @@ fn count_openness(empty_board: u64, bit: u64) -> i32 {
 // 中盤に用いる評価関数
 fn eval_normal(board_info: &BoardInfo) -> i32 {
     if board_info.player_board.count_ones() == 0 as u32 {
-        return std::i32::MIN;
+        return -100000000;
     }
     if board_info.opponent_board.count_ones() == 0 as u32 {
-        return std::i32::MAX;
+        return 100000000;
     }
 
     let empty_board = !(board_info.player_board | board_info.opponent_board);
@@ -975,10 +975,28 @@ fn decide(board_info: &mut BoardInfo, left_time: i32, way_of_eval: i8, limit: i8
             Err(mpsc::TryRecvError::Empty) => {
                 let elapse = start.elapsed();
                 let sec = elapse.as_secs();
-                // 必勝読みや完全読みの境目にいるとき，残り10秒以下ならやばくなってくるので，EVAL_NORMALで計算し直す
-                if (way_of_eval == EVAL_WIN || way_of_eval == EVAL_PERFECT) && left_time - sec as i32 * 1000 <= 10000 && EVAL_PERFECT_DEPTH <= (60 - board_info.now_index) && (60 - board_info.now_index) <= EVAL_WIN_DEPTH { 
-                    return decide(board_info, left_time, EVAL_NORMAL, EVAL_NORMAL_DEPTH);
+                // 必勝読みや完全読みの境目にいるとき，残り10秒以下ならやばくなってくるので，現状で最も良い結果を返す
+                if (way_of_eval == EVAL_WIN || way_of_eval == EVAL_PERFECT) && left_time - sec as i32 * 1000 <= 10000 && 14 <= (60 - board_info.now_index) && (60 - board_info.now_index) <= EVAL_WIN_DEPTH { 
+                    return decide(board_info, left_time, EVAL_NORMAL, EVAL_NORMAL_DEPTH - 2);
                     // 注意：このときまだ動き続けているスレッドがあるので，Err(mpsc::SendError(_))として別処理が必要
+                }
+                if way_of_eval == EVAL_NORMAL && sec as i32 >= 3 && left_time - sec as i32 * 1000 <= 40000 { // EVAL_NORMALにおいて3秒かかっているときは探索打ち切り
+                    if ret == 0 {
+                        let legal_board: u64 = make_legal_board(board_info);
+                            if legal_board == 0 as u64 { // おける手がなければパスを選択
+                                ret = 0;
+                            }else{
+                                let mut mask = 0x800000000000000;
+                                for _ in 0..BOARDSIZE {
+                                    if mask & legal_board != 0 {
+                                        ret = mask;
+                                        break;
+                                    }
+                                    mask = mask >> 1;
+                                }
+                            }
+                    }
+                    return ret;
                 }
                 continue;
             },

@@ -1,5 +1,24 @@
 05-211008 加藤大地
 
+環境
+
+言語：Rust
+project name = "reversi"
+version = "0.1.0"
+edition = "2018"
+
+
+ビルド・実行方法
+
+cargo build --release
+により，target/releaseにreversiという実行ファイルが生成されるので，それを実行すればよい。
+実行時，引数として，-Hでhost名，-pでport名，-nで自分の名前を設定できる。デフォルト値は，
+host = "localhost"
+port = "3000"
+name = "Player"
+である。
+
+
 工夫した点
 
 ・評価関数を場面によって分割したこと
@@ -51,17 +70,6 @@ AIが隅を取れる手番なのに，角をとらないで違う場所に着手
 ・おける場所が少なくなっていくのを実感した
 
 着手可能手数にも大きめの重みをつけているため，このような感想が生まれたと考えられる。
-
-
-ビルド・実行方法
-
-cargo build --release
-により，target/releaseにreversiという実行ファイルが生成されるので，それを実行すればよい。
-実行時，引数として，-Hでhost名，-pでport名，-nで自分の名前を設定できる。デフォルト値は，
-host = "localhost"
-port = "3000"
-name = "Player"
-である。
 
 
 参考
