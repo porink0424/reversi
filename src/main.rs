@@ -1159,7 +1159,7 @@ fn main() {
                 let mut limit: i8;
 
                 let mut is_waiting: bool = true; // 対戦待ち状態ならtrue
-                let mut buffer = Vec::<u8>::new();
+                let mut buffer;
                 loop{
 
                     if is_waiting == true { // 対戦待ち状態
@@ -1181,7 +1181,6 @@ fn main() {
                                 player_board: 0x0000000810000000,
                                 opponent_board: 0x0000001008000000,
                             };
-                            way_of_eval = choose_evaluator(&board_info);
                             is_waiting = false;
                             game_start(&board_info);
                         }else{
@@ -1287,6 +1286,9 @@ fn main() {
                             game_set(&board_info);
                             is_waiting = true;
                             continue;
+                        }else if buffer[0] == 'U' as u8 { // UNDOがきた
+                            board_info_history.pop();
+                            board_info = board_info_history.pop().unwrap();
                         }else{
                             panic!("could not receive 'MOVE'");
                         }     

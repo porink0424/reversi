@@ -1,0 +1,2 @@
+main.rs: 通信プロトコルにしたがったrustの思考ルーチン
+interface.py: tkinterによるguiを介したインターフェース
