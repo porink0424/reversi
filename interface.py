@@ -487,7 +487,7 @@ def main():
                         sock.close()
                         gameover(board)
 
-                    send_line = "MOVE "+inp+"\n"
+                    send_line = "MOVE "+inp[0].upper()+inp[1]+"\n"
                     client_sock.send(bytes(send_line, 'utf-8'))
                     break
         
@@ -537,7 +537,7 @@ def main():
                         sock.close()
                         gameover(board)
 
-                    send_line = "MOVE "+inp+"\n"
+                    send_line = "MOVE "+inp[0].upper()+inp[1]+"\n"
                     client_sock.send(bytes(send_line, 'utf-8'))
                     break
 
@@ -548,6 +548,7 @@ def main():
             recv_line = client_sock.recv(4096).decode()
             if recv_line[0:5] == "MOVE ":
                 if recv_line[5] != "P": # PASSでない
+                    print(encoder(recv_line[5:7]))
                     board.move(encoder(recv_line[5:7]))
                     print("CPU's Move: "+recv_line[5:7])
                 else: # PASS
