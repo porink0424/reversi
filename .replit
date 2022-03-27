@@ -1,2 +1,2 @@
 language = "python3"
-run = "python interface.py"
+run = "cargo build --release ; python interface.py"
