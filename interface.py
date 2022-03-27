@@ -391,16 +391,24 @@ def main():
         print("INVALID")
         return
 
-    # socket接続
-    print("Connecting...")
     host = 'localhost'
     port = 3000
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((host,port))
-    sock.listen(1) # キューの最大数を規定
+    while True:
+        try:
+            # socket接続
+            print("Connecting...")
+            sock.bind((host,port))
+            sock.listen(1) # キューの最大数を規定
 
-    # # 子プロセスとしてrustのプログラムをたてる
-    proc = subprocess.Popen(['./target/release/reversi'])
+            # 子プロセスとしてrustのプログラムをたてる
+            proc = subprocess.Popen(['./target/release/reversi', '-p', str(port)])
+
+            print("Listening on {}.{}".format(host, port))
+            break
+        except:
+            # portが開いていなかった場合portをずらす
+            port += 1
 
     client_sock, client_addr = sock.accept()
     print("Connection Succeeded")
