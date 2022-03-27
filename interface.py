@@ -458,7 +458,7 @@ def main():
 
             # playerのターン
             if len(board.movable_pos[board.turns]) == 0:
-                print("Cannot put anywhere")
+                input("Cannot put anywhere. Press Enter.")
                 send_line = "MOVE PASS\n"
                 client_sock.send(bytes(send_line, 'utf-8'))
                 board.move_pass()
@@ -508,7 +508,7 @@ def main():
 
             # playerのターン
             if len(board.movable_pos[board.turns]) == 0:
-                print("Cannot put anywhere")
+                input("Cannot put anywhere. Press Enter.")
                 send_line = "MOVE PASS\n"
                 client_sock.send(bytes(send_line, 'utf-8'))
                 board.move_pass()
