@@ -85,5 +85,5 @@ AIが隅を取れる手番なのに，角をとらないで違う場所に着手
 
 ### ファイル構成
 
-main.rs: 通信プロトコルにしたがったrustの思考ルーチン
-interface.py: tkinterによるguiを介したインターフェース
+- `main.rs`: 通信プロトコルにしたがったrustの思考ルーチン
+- `interface.py`: tkinterによるguiを介したインターフェース
