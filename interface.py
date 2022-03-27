@@ -2,6 +2,7 @@
 import socket
 import tkinter
 import sys
+import subprocess
 
 WIN = 1
 DRAW = 0
@@ -398,6 +399,9 @@ def main():
     sock.bind((host,port))
     sock.listen(1) # キューの最大数を規定
 
+    # # 子プロセスとしてrustのプログラムをたてる
+    proc = subprocess.Popen(['./target/release/reversi'])
+
     client_sock, client_addr = sock.accept()
     print("Connection Succeeded")
 
@@ -548,7 +552,6 @@ def main():
             recv_line = client_sock.recv(4096).decode()
             if recv_line[0:5] == "MOVE ":
                 if recv_line[5] != "P": # PASSでない
-                    print(encoder(recv_line[5:7]))
                     board.move(encoder(recv_line[5:7]))
                     print("CPU's Move: "+recv_line[5:7])
                 else: # PASS
