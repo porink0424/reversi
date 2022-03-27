@@ -1014,18 +1014,18 @@ fn decide(board_info: &mut BoardInfo, left_time: i32, way_of_eval: i8, limit: i8
     // 勝敗予想
     if way_of_eval == EVAL_WIN {
         match max_eval {
-            1  => println!("I predicate I will win."),
-            0  => println!("I predicate this game will end in a draw."),
-            -1 => println!("I predicate I will lose."),
+            1  => println!("I predict I will win."),
+            0  => println!("I predict this game will end in a draw."),
+            -1 => println!("I predict I will lose."),
             _  => panic!("Invalid value"),
         };
     }else if way_of_eval == EVAL_PERFECT {
         if max_eval > 0 {
-            println!("I predicate I will win by {} points.", max_eval);
+            println!("I predict I will win by {} points.", max_eval);
         }else if max_eval == 0 {
-            println!("I predicate this game will end in a draw.");
+            println!("I predict this game will end in a draw.");
         }else{
-            println!("I predicate I will lose by {} points.", -max_eval);
+            println!("I predict I will lose by {} points.", -max_eval);
         }
     }
 
