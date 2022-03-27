@@ -30,7 +30,7 @@ BOARD_SIZE = BOARD_LINE_SIZE ** 2
 # canvas
 root = tkinter.Tk()
 root.title("Othello")
-canvas = tkinter.Canvas(root, width=900, height=900, bg="palegreen")
+canvas = tkinter.Canvas(root, width=300, height=300, bg="palegreen")
 
 def encoder(str):
     try:
@@ -341,13 +341,13 @@ class Board:
                 canvas.delete("disc"+str(x)+str(y))
                 canvas.delete("indicator"+str(x)+str(y))
         for i in self.movable_pos[self.turns]:
-            canvas.create_rectangle(90+90*(i.x-1)+5, 60+90*(i.y-1)+5, 90+90*i.x-5, 60+90*i.y-5, fill="green", tag = "indicator"+str(i.x)+str(i.y))
+            canvas.create_rectangle(30+30*(i.x-1)+5, 20+30*(i.y-1)+5, 30+30*i.x-5, 20+30*i.y-5, fill="green", tag = "indicator"+str(i.x)+str(i.y))
         for y in range(1,BOARD_LINE_SIZE+1):
             for x in range(1, BOARD_LINE_SIZE+1):
                 if self.board[x][y] == WHITE:
-                    canvas.create_oval(90+90*(x-1)+5, 60+90*(y-1)+5, 90+90*x-5,60+90*y-5, fill="white", outline="black", width="3", tag = "disc"+str(x)+str(y))
+                    canvas.create_oval(30+30*(x-1)+5, 20+30*(y-1)+5, 30+30*x-5,20+30*y-5, fill="white", outline="black", width="3", tag = "disc"+str(x)+str(y))
                 elif self.board[x][y] == BLACK:
-                    canvas.create_oval(90+90*(x-1)+5, 60+90*(y-1)+5, 90+90*x-5,60+90*y-5, fill="black", outline="black", width="3", tag = "disc"+str(x)+str(y))
+                    canvas.create_oval(30+30*(x-1)+5, 20+30*(y-1)+5, 30+30*x-5,20+30*y-5, fill="black", outline="black", width="3", tag = "disc"+str(x)+str(y))
         canvas.pack()
         print("")
         print("TURN:", self.turns)
@@ -375,11 +375,11 @@ def exit():
 def main():
     # guiの用意
     for i in range(1,10):
-        canvas.create_line(90*i,90-30,90*i,810-30,fill="black",width="5")
-        canvas.create_line(90,90*i-30,810,90*i-30,fill="black",width="5")
+        canvas.create_line(30*i,30-10,30*i,270-10,fill="black",width="5")
+        canvas.create_line(30,30*i-10,270,30*i-10,fill="black",width="5")
     for i in range(1,9):
-        canvas.create_text(140+90*(i-1), 30, text = chr(ord("a")+(i-1)), fill="black", font = ("Times New Roman", 50))
-        canvas.create_text(50,90*i+50-35, text=str(i),fill="black", font = ("Times New Roman", 50))
+        canvas.create_text(47+30*(i-1), 10, text = chr(ord("a")+(i-1)), fill="black", font = ("Times New Roman", 20))
+        canvas.create_text(17,30*i+5, text=str(i),fill="black", font = ("Times New Roman", 20))
     canvas.pack()
 
     inp = input("Your Color? (b/w): ")
