@@ -4,6 +4,8 @@ Rustで思考ルーチン部を、pythonでインターフェースを書いた�
 
 そこそこ強いかもしれない。
 
+## DEMO
+
 [![Run on Repl.it](https://repl.it/badge/github/porinky0424/reversi)](https://repl.it/github/porinky0424/reversi)
 
 ### ビルド・実行方法
